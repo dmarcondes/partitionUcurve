@@ -1,11 +1,16 @@
 Package: partitionUcurve
 Type: Package
-Title: What the Package Does (Title Case)
-Version: 0.1.0
-Author: Who wrote it
-Maintainer: The package maintainer <yourself@somewhere.net>
+Title: U-curve Algorithm for Model Selection on the Partition Lattice Learning Space
+Version: 0.1
+Author: Diego Marcondes
+Maintainer: Diego Marcondes <dmarcondes@ime.usp.br>
 Description: More about what it does (maybe more than one line)
     Use four spaces when indenting paragraphs within the Description.
-License: What license is it under?
+Imports:
+    ggvis (>= 0.2),
+    dplyr (>= 0.3.0.1)
+License: GPL (>= 2)
+URL: https://github.com/dmarcondes/partitionUcurve
+BugReports: https://github.com/dmarcondes/partitionUcurve/issues
 Encoding: UTF-8
 LazyData: true
