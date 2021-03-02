@@ -1,9 +1,5 @@
 ####Utility functions for partitionUcurve package#####
 
-require(rlist)
-require(parallel)
-cores <- 4
-
 #Test if partion and order parts by minimum
 makePartition <- function(part){
   #Is partition
@@ -92,11 +88,12 @@ findNeighbors <- function(part){
   if(length(part) > 1){
     nameUnion <- combn(1:length(part),2)
     if(ncol(nameUnion) > 1){
-      union <- apply(nameUnion,2,function(x) c(x[[1]],x[[2]],part[[x[1]]],part[[x[2]]]))
-      union <- lapply(union,function(x) list.append(list(x[-c(1,2)]),part[-c(x[1:2])]))
+      union <- plyr::alply(nameUnion,2,function(x) c(x[[1]],x[[2]],part[[x[1]]],part[[x[2]]]))
+      union <- lapply(union,function(x) rlist::list.append(list(x[-c(1,2)]),part[-c(x[1:2])]))
       union <- lapply(union,function(y) lapply(rapply(y, enquote, how="unlist"), eval))
       union <- lapply(union,makePartition)
       union <- unlist(lapply(union,namePartition))
+      names(union) <- NULL
     }
     else
       union <- namePartition(makePartition(list(c(part[[1]],part[[2]]))))
@@ -115,7 +112,8 @@ jointDistribution <- function(x,y){
 }
 
 #Calculate error of a partition
-getError <- function(part,jtrain,jeval){
+getError <- function(part,jtrain,jval){
+
   #Estimated hypothesis
   parJoint <- lapply(part,function(x) colSums(rbind(jtrain[x,],c(0,0))))
   optimalComplement <- unlist(lapply(parJoint,function(x) c(1:2)[x == min(x)][1]))
@@ -145,4 +143,21 @@ visitedNode <- function(part){
   return(vis)
 }
 
+#Get optimal hypothesis of partition
+optimalHyp <- function(part,jtrain){
+  part <- getPartition(part)
 
+  #Estimated hypothesis
+  parJoint <- lapply(part,function(x) colSums(rbind(jtrain[x,],c(0,0))))
+  optimalComplement <- unlist(lapply(parJoint,function(x) c(0:1)[x == min(x)][1]))
+
+  #Hypothesis
+  domain <- unlist(strsplit(names(optimalComplement),","))
+  domain <- domain[order(as.numeric(domain))]
+  f <- vector()
+  for(i in domain)
+    f[domain == i] <- optimalComplement[unlist(lapply(strsplit(names(optimalComplement),","),function(x) i %in% x))]
+  f <- data.frame("X" = domain,"fx" = f)
+
+  return(f)
+}

@@ -1,6 +1,5 @@
-#' @import ggplot2
-#' @import scales
-#' @import ggpubr
+#' @import plyr
+#' @import rlist
 #' @export
 #' @title U-curve algorith on the Partition Lattice Learning Space
 #'
@@ -8,122 +7,129 @@
 #'
 #' @details TBD
 #'
-#' @param x Vetor.
-#' @example "TBD"
-#' @return TBD
+#' @param xtrain Vector with the training sample of x values.
+#' @param ytrain Vector with the training sample of y values.
+#' @param xval Vector with the validation sample of x values.
+#' @param yval Vector with the validation sample of y values.
+#' @param verbose Logical to print a trace of the algorithm.
+#' @return \item{hypotheses}{The estimated hypothesis of the global minimums with least VC dimension.}
+#' @return \item{partitions}{Partitions of the global minimums with least VC dimension.}
+#' @return \item{error}{Error of the global minimums.}
+#' @return \item{visited}{Number and percentage of nodes visited.}
+#' @examples
+#' set.seed(1)
+#' x <- sample(x = 1:10,size = 50,replace = T)
+#' y <- as.factor(ifelse(x-5+rnorm(50,0,10) > 0,1,0))
+#' x <- factor(x)
+#' train <- sample(1:50,35,F)
+#' xtrain <- x[train]
+#' ytrain <- y[train]
+#' xval <- x[!(c(1:50) %in% train)]
+#' yval <- y[!(c(1:50) %in% train)]
+#' ucurve(xtrain,ytrain,xval,yval)
 
-ucurve <- function(xtrain,ytrain,xval,yval){
-  #Get parameters
+ucurve <- function(xtrain,ytrain,xval,yval,verbose = F){
+
+  #Get sample info
   X <- unique(c(as.character(xtrain),as.character(xval)))
   X <- X[order(X)]
+  #if(length(X) > 20)
+  #  stop("Sorry, but this algorithm is not scalable! It works only for at most 20 points on X domain.")
   xtrain <- factor(xtrain,X)
   xval <- factor(xval,X)
-  if(length(X) > 20)
-    stop("Sorry, but this algorithm is not scalable! It works only for at most 20 points on X domain.")
 
   Y <- unique(c(as.character(ytrain),as.character(yval)))
   Y <- Y[order(Y)]
-  ytrain <- factor(ytrain,Y)
-  yval <- factor(yval,Y)
   if(length(Y) != 2)
     stop("The algorithm only work for binary classification problems.")
+  ytrain <- factor(ytrain,Y)
+  yval <- factor(yval,Y)
 
+  #Delete file with visited nodes
   suppressWarnings(system("rm visited.dat"))
 
+  #Get parameters
   n <- length(X)
   search <- 1
   jtrain <- jointDistribution(xtrain,ytrain)
   jval <- jointDistribution(xval,yval)
   part <- makePartition(list(1:n))
+  errorPart <- getError(part,jtrain,jval)
+  addNode(part,errorPart)
+  restart <- findNeighbors(part)
   strongMinimums <- vector()
 
   while(search){
     #Calculate error
     errorPart <- getError(part,jtrain,jval)
 
-    if(is.null(visitedNode(part)))
-      addNode(part,errorPart)
+    #Save as visited node
+    addNode(part,errorPart)
 
     #Get neighbours
     N <- findNeighbors(part)
 
     #Verbose of new step
-    cat("\n")
-    cat(paste("At node",namePartition(part),"with error",round(errorPart,5),"and",length(N),"neighbors"))
-    cat("\n")
+    if(verbose){
+      cat("\n")
+      cat(paste("At node",namePartition(part),"with error",round(errorPart,5),"and",length(N),"neighbors"))
+      cat("\n")
+    }
 
     #Search neighbours for lesser value
-    for(i in 1:length(N)){
-      Npart <- getPartition(N[i])
-      vis <- visitedNode(Npart)
-      if(is.null(vis)){
-        errorNeighbor <- getError(Npart,jtrain,jval)
-        addNode(Npart,errorNeighbor)
+    err <- unlist(apply(rbind(N),2,function(x) getError(getPartition(x),jtrain,jval)))
+    if(errorPart <= min(err)){
+      if(verbose){
+        cat("This node is a Strong Local Minimum!! Storing it and starting algorithm again...")
+        cat("\n")
+      }
+      #Store node as Strong Local Minimum
+      strongMinimums <- c(strongMinimums,namePartition(part))
+
+      #Find a new node at second floor to restart algorithm
+      restart <- restart[!unlist(lapply(apply(rbind(restart),2,getPartition),function(x) is.related(x,part)))]
+
+      if(length(restart) > 0){
+        #Choose a new node to restart
+        part <- getPartition(restart[sample(1:length(restart),1)])
+      }
+      else{
+        #If all the second floor is related to a Strong Local Minimum we are done
+        search <- 0
+        if(verbose){
+          cat("All Strong Local Minimum have been found!! Finishing algorithm...")
+        }
+      }
+    }
+    else{
+      N <-  N[err < errorPart & err == min(err)]
+      if(length(strongMinimums) > 0){
+        #Get partition of all Strong Local Minimums found so far
+        minPart <- apply(rbind(strongMinimums),2,getPartition)
+
+        #Only neighboors not related to SLM
+        r <- unlist(apply(rbind(N),2,function(y) sum(unlist(lapply(minPart,function(x) is.related(x,y)))) == 0))
       }
       else
-        errorNeighbor <- vis
-      if(round(errorNeighbor,7) < round(errorPart,7)){
-        part <- Npart
-        errorPart <- errorNeighbor
-        if(length(strongMinimums) > 0){
-          minPart <- apply(rbind(strongMinimums),2,getPartition)
-          if(sum(unlist(lapply(minPart,function(x) is.related(x,part)))) == 0 & is.null(vis)){
-            i <- length(N) + 1
-            cat("Found a neighbor with lesser loss. Restarting from it..")
-            cat("\n")
-          }
-          else
-            i <- length(N) + 2
+        r <- rep(TRUE,length(N))
+      N <- N[r]
+      if(length(N) > 0){
+        if(verbose){
+          cat("Found a neighbor with lesser loss. Restarting from it..")
+          cat("\n")
         }
-        else{
-          if(is.null(vis)){
-            i <- length(N) + 1
-            cat("Found a neighbor with lesser loss. Restarting from it..")
-          }
-          else
-            i <- length(N) + 2
-        }
-        break
-      }
-    }
 
-    if(i == length(N)){
-      cat("This node is a Strong Local Minimum!! Storing it and starting algorithm again...")
-      cat("\n")
-      strongMinimums <- c(strongMinimums,namePartition(part))
-      part <- findNeighbors(makePartition(list(1:n)))
-      part <- part[sample(1:length(part),length(part),F)]
-      minPart <- apply(rbind(strongMinimums),2,getPartition)
-      for(j in 1:length(part)){
-        if(sum(unlist(lapply(minPart,function(x) is.related(x,getPartition(part[j]))))) == 0 & is.null(visitedNode(getPartition(part[j])))){
-          part <- getPartition(part[j])
-          j <- length(part) + 1
-          break
+        #Neighbor is the new node
+        part <- getPartition(sample(N,1))
+      }
+      else{
+        #When the neighboor with less loss is related to a Strong Local Minimum
+        if(verbose){
+          cat("All neighboors with lesser loss are associated to a Strong Local Minimum. Restarting...")
+          cat("\n")
         }
-      }
-      if(j == length(part)){
-        search <- 0
-        cat("All Strong Local Minimum have been found!! Finishing algorithm...")
-      }
-    }
-    else if(i == length(N) + 2){
-      cat("This node is associated to Strong Local Minimum or is not a Strong Local Minimum. Starting the algorithm again...")
-      cat("\n")
-      part <- findNeighbors(makePartition(list(1:n)))
-      part <- part[sample(1:length(part),length(part),F)]
-      minPart <- apply(rbind(strongMinimums),2,getPartition)
-      for(j in 1:length(part)){
-        if(sum(unlist(lapply(minPart,function(x) is.related(x,getPartition(part[j]))))) == 0 & is.null(visitedNode(getPartition(part[j])))){
-          part <- getPartition(part[j])
-          j <- length(part) + 1
-          break
-        }
-        else if(is.null(visitedNode(getPartition(part[j]))))
-          addNode(getPartition(part[j]),getError(getPartition(part[j]),jtrain,jval))
-      }
-      if(j == length(part)){
-        search <- 0
-        cat("All Strong Local Minimum have been found!! Finishing algorithm...")
+        restart <- restart[restart != namePartition(part)]
+        part <- getPartition(restart[sample(1:length(restart),1)])
       }
     }
   }
@@ -135,7 +141,23 @@ ucurve <- function(xtrain,ytrain,xval,yval){
   global <- global[unlist(lapply(global,length)) == min(unlist(lapply(global,length)))]
   solution <- unlist(lapply(global,function(x) namePartition(makePartition(x))))
 
-  #Nodes visite
+  #Nodes visited
   visited <- read.table("visited.dat",sep = "e")
-  100*nrow(visited)/numbers::bell(n)
+  if(verbose){
+    cat("\n")
+    cat("---------------------------------------------------------------------------------")
+    cat("\n")
+    cat(paste("Nodes visited: ",nrow(visited)," (",round(100*nrow(visited)/numbers::bell(n),2),"%)",sep = ""))
+    cat("\n")
+    cat("---------------------------------------------------------------------------------")
+  }
+
+  #Solution
+  oh <- tapply(cbind(solution),solution,function(x) optimalHyp(part = x,jtrain = jtrain))
+  oh <- lapply(oh,function(x) data.frame("X" = X,"fx" = plyr::mapvalues(factor(x[,2]),c("1","0"),Y)))
+  error <- unique(tapply(cbind(solution),solution,function(x) getError(part = getPartition(x),jtrain = jtrain,jval = jval)))
+  names(error) <- NULL
+
+  return(list("hypotheses" = oh,"partitions" = solution,"error" = error,
+              "visited" = paste(nrow(visited)," (",round(100*nrow(visited)/numbers::bell(n),2),"%)",sep = "")))
 }
