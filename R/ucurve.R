@@ -76,8 +76,8 @@ ucurve <- function(xtrain,ytrain,xval,yval,verbose = F){
       cat("\n")
     }
 
-    #Search neighbours for lesser value
-    err <- unlist(apply(rbind(N),2,function(x) getError(getPartition(x),jtrain,jval)))
+    #Error of neighboors
+    err <- unlist(plyr::alply(rbind(N),2,function(x) getError(getPartition(x),jtrain,jval)))
     if(errorPart <= min(err)){
       if(verbose){
         cat("This node is a Strong Local Minimum!! Storing it and starting algorithm again...")
@@ -87,7 +87,7 @@ ucurve <- function(xtrain,ytrain,xval,yval,verbose = F){
       strongMinimums <- c(strongMinimums,namePartition(part))
 
       #Find a new node at second floor to restart algorithm
-      restart <- restart[!unlist(lapply(apply(rbind(restart),2,getPartition),function(x) is.related(x,part)))]
+      restart <- restart[!unlist(lapply(plyr::alply(rbind(restart),2,getPartition),function(x) is.related(x,part)))]
 
       if(length(restart) > 0){
         #Choose a new node to restart
@@ -102,20 +102,20 @@ ucurve <- function(xtrain,ytrain,xval,yval,verbose = F){
       }
     }
     else{
-      N <-  N[err < errorPart & err == min(err)]
+      N <-  N[err < errorPart]
       if(length(strongMinimums) > 0){
         #Get partition of all Strong Local Minimums found so far
-        minPart <- apply(rbind(strongMinimums),2,getPartition)
+        minPart <- plyr::alply(rbind(strongMinimums),2,getPartition)
 
         #Only neighboors not related to SLM
-        r <- unlist(apply(rbind(N),2,function(y) sum(unlist(lapply(minPart,function(x) is.related(x,y)))) == 0))
+        r <- unlist(plyr::alply(rbind(N),2,function(y) sum(unlist(lapply(minPart,function(x) is.related(x,y)))) == 0))
       }
       else
         r <- rep(TRUE,length(N))
-      N <- N[r]
+      N <- N[r & unlist(lapply(plyr::alply(rbind(N),2,getPartition),function(x) length(x) > length(part)))]
       if(length(N) > 0){
         if(verbose){
-          cat("Found a neighbor with lesser loss. Restarting from it..")
+          cat("Found a greater neighbor with lesser loss. Restarting from it..")
           cat("\n")
         }
 
@@ -125,10 +125,9 @@ ucurve <- function(xtrain,ytrain,xval,yval,verbose = F){
       else{
         #When the neighboor with less loss is related to a Strong Local Minimum
         if(verbose){
-          cat("All neighboors with lesser loss are associated to a Strong Local Minimum. Restarting...")
+          cat("All neighboors with lesser loss are associated to a Strong Local Minimum or are lesser. Restarting...")
           cat("\n")
         }
-        restart <- restart[restart != namePartition(part)]
         part <- getPartition(restart[sample(1:length(restart),1)])
       }
     }
