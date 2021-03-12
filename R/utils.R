@@ -38,19 +38,7 @@ getPartition <- function(name){
 
 #Teste if two partitions are related
 is.related <- function(part1,part2){
-  if(length(part1) < length(part2)){
-    p1 <- part1
-    p2 <- part2
-  }
-  else{
-    p1 <- part2
-    p2 <- part1
-  }
-
-  #Test inclusion p1 <= p2
-  is.related <- sum(unlist(lapply(p2,function(y) sum(unlist(lapply(p1,function(x) all(y %in% x)))) == 1))) == length(p2)
-
-  return(is.related)
+  return(sum(part1 <= part2) == length(part1) | sum(part1 >= part2) == length(part1))
 }
 
 #Find neighbors of a partition

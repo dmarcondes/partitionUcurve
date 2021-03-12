@@ -4,7 +4,16 @@
 \alias{ucurve}
 \title{U-curve algorith on the Partition Lattice Learning Space}
 \usage{
-ucurve(xtrain, ytrain, xval, yval)
+ucurve(
+  xtrain,
+  ytrain,
+  xval,
+  yval,
+  verbose = T,
+  stop = 0,
+  path = "~/GDrive/Doutorado/Códigos/Particoes/",
+  Lh = NULL
+)
 }
 \arguments{
 \item{xtrain}{Vector with the training sample of x values.}
@@ -14,15 +23,33 @@ ucurve(xtrain, ytrain, xval, yval)
 \item{xval}{Vector with the validation sample of x values.}
 
 \item{yval}{Vector with the validation sample of y values.}
+
+\item{verbose}{Logical to print a trace of the algorithm.}
+
+\item{stop}{Number of nodes yet to evaluate to trigger exhaustive search.}
+
+\item{path}{Path to preprocessed partition files.}
+
+\item{Lh}{An R object with the partition file if it has already been read.}
 }
 \value{
 \item{hypotheses}{The estimated hypothesis of the global minimums with least VC dimension.}
 
 \item{partitions}{Partitions of the global minimums with least VC dimension.}
 
-\item{error}{Error of the global minimums.}
+\item{error}{Validation error of the global minimums.}
 
-\item{visited}{Number and percentage of nodes visited.}
+\item{exhausted}{Number of nodes exhausted during algorithm.}
+
+\item{remain}{Number of nodes remaining after algorithm stopped.}
+
+\item{finished}{If the algorithm was finished or ended after not finding any Strong Local Minimum,}
+
+\item{SLMvis}{Number of nodes exhasuted until the last Strong Local Minimum was found.}
+
+\item{remain_after_prune}{Number of nodes remaining after finding each Strong Local Minimum.}
+
+\item{exhausted_until_prune}{Number of nodes exhausted until finding each Strong Local Minimum.}
 }
 \description{
 TBD
@@ -32,13 +59,13 @@ TBD
 }
 \examples{
 set.seed(1)
-x <- sample(x = 1:10,size = 50,replace = T)
-y <- as.factor(ifelse(x-5+rnorm(50,0,10) > 0,1,0))
+x <- sample(x = c("01","02","03","04","05","06","07","08","09","10"),size = 500,replace = T)
+y <- as.factor(ifelse(as.numeric(x)-5+rnorm(500,0,10) > 0,1,0))
 x <- factor(x)
-train <- sample(1:50,35,F)
+train <- sample(1:500,350,F)
 xtrain <- x[train]
 ytrain <- y[train]
-xval <- x[!(c(1:50) \%in\% train)]
-yval <- y[!(c(1:50) \%in\% train)]
+xval <- x[!(c(1:500) \%in\% train)]
+yval <- y[!(c(1:500) \%in\% train)]
 ucurve(xtrain,ytrain,xval,yval)
 }
