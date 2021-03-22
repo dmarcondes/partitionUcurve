@@ -9,10 +9,14 @@ ucurve(
   ytrain,
   xval,
   yval,
+  optimal = T,
+  exhaust = 1000,
+  sampleNeigh = F,
   verbose = T,
   stop = 0,
   path = "~/GDrive/Doutorado/Códigos/Particoes/",
-  Lh = NULL
+  Lh = NULL,
+  cores = 4
 )
 }
 \arguments{
@@ -24,13 +28,21 @@ ucurve(
 
 \item{yval}{Vector with the validation sample of y values.}
 
+\item{optimal}{Logical indicating if the algorithm should return an optimal solution.}
+
+\item{exhaust}{Number of points to exhaust before stopping the algorithm.}
+
+\item{sampleNeigh}{Either false to consider all neighboors, or the maximum number of neighboors to sample at each exhaustion. If a number,then optimal should be false.}
+
 \item{verbose}{Logical to print a trace of the algorithm.}
 
 \item{stop}{Number of nodes yet to evaluate to trigger exhaustive search.}
 
 \item{path}{Path to preprocessed partition files.}
 
-\item{Lh}{An R object with the partition file if it has already been read.}
+\item{Lh}{A data frame with the partition lattice.}
+
+\item{cores}{Number of cores for parallel computing.}
 }
 \value{
 \item{hypotheses}{The estimated hypothesis of the global minimums with least VC dimension.}
@@ -43,13 +55,15 @@ ucurve(
 
 \item{remain}{Number of nodes remaining after algorithm stopped.}
 
-\item{finished}{If the algorithm was finished or ended after not finding any Strong Local Minimum,}
+\item{finished}{If the algorithm was finished or ended after not finding any Strong Local Minimum.}
 
 \item{SLMvis}{Number of nodes exhasuted until the last Strong Local Minimum was found.}
 
 \item{remain_after_prune}{Number of nodes remaining after finding each Strong Local Minimum.}
 
 \item{exhausted_until_prune}{Number of nodes exhausted until finding each Strong Local Minimum.}
+
+\item{optimal}{Wheter an optimal solution was returned.}
 }
 \description{
 TBD
@@ -59,13 +73,13 @@ TBD
 }
 \examples{
 set.seed(1)
-x <- sample(x = c("01","02","03","04","05","06","07","08","09","10"),size = 500,replace = T)
-y <- as.factor(ifelse(as.numeric(x)-5+rnorm(500,0,10) > 0,1,0))
+x <- sample(x = c("01","02","03","04","05","06","07","08","09","10","11","12","13","14","15","16","17","18","19","20"),size = 500,replace = T)
+y <- as.factor(ifelse(as.numeric(x)-10+rnorm(500,0,20/3) > 0,1,0))
 x <- factor(x)
 train <- sample(1:500,350,F)
 xtrain <- x[train]
 ytrain <- y[train]
 xval <- x[!(c(1:500) \%in\% train)]
 yval <- y[!(c(1:500) \%in\% train)]
-ucurve(xtrain,ytrain,xval,yval)
+ucurve(xtrain,ytrain,xval,yval,optimal = F,sampleNeigh = 5000)
 }
